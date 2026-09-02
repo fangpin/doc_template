@@ -1,0 +1,30 @@
+VENV := .venv
+PY := $(VENV)/bin/python
+SPHINX := $(VENV)/bin/sphinx-build
+
+.PHONY: install sync html docs serve clean
+
+install:
+	python3 -m venv $(VENV)
+	$(VENV)/bin/pip install -r requirements.txt
+
+ifndef FROM
+sync:
+	@test -n "$(DOC)" || (echo "usage: make sync DOC=<feishu-doc-url>" && exit 1)
+	$(PY) scripts/sync_lark_doc.py --doc "$(DOC)"
+else
+sync:
+	$(PY) scripts/sync_lark_doc.py --from-file "$(FROM)"
+endif
+
+html:
+	$(SPHINX) -b html docs/source docs/_build/html
+
+docs: sync html
+	@echo "open docs/_build/html/index.html"
+
+serve: html
+	$(PY) -m http.server 8000 --directory docs/_build/html
+
+clean:
+	rm -rf docs/_build
