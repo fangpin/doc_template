@@ -12,6 +12,8 @@ This repository is a template:
   flat into the target repo's root (no extra directory layer, no submodules).
   Each project just points at a different Feishu document URL.
 
+[An example site looks like this](https://fangpin.github.io/llm-from-scratch/index.html)
+
 ## Features
 
 - Fetches Feishu documents via `lark-cli` (Markdown format) and splits chapters on H1 headings
