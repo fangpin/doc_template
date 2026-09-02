@@ -1,3 +1,10 @@
 .venv/
 docs/_build/
 __pycache__/
+
+# sync-generated content (belongs to each instance repo, not the template)
+docs/project.json
+docs/source/index.md
+docs/source/chapters/
+docs/source/assets/
+dist/platform-posts

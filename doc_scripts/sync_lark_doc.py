@@ -9,6 +9,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
 import os
 import re
@@ -45,7 +47,11 @@ IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(\s+\"[^\"]*\")?\)")
 ESCAPE_RE = re.compile(r"\\([*_$\[\]()])")
 FOOTNOTE_DEF_RE = re.compile(r"^\[\^([^\]]+)\]:")
 FOOTNOTE_REF_RE = re.compile(r"\[\^([^\]]+)\]")
-SHEET_RE = re.compile(r"<sheet\b[^>]*>\s*(?:</sheet>)?")
+SHEET_TAG_RE = re.compile(r"<sheet\b([^>]*)>\s*(?:</sheet>)?")
+SHEET_ATTR_RE = re.compile(r'([\w-]+)="([^"]*)"')
+SHEET_PLACEHOLDER = "> [飞书内嵌电子表格导出失败，请到原文档查看对应内容]"
+
+SHEET_FETCH_RANGE = "A1:Z200"  # generous cap; embedded sheets in docs are small
 FENCE_LANG_RE = re.compile(r"^(\s*)(`{3,}|~{3,})\s*(\S*)(.*)$")
 
 FENCE_LANG_ALIASES = {
@@ -66,7 +72,8 @@ def fail(message: str) -> None:
     sys.exit(f"error: {message}")
 
 
-def fetch_lark_markdown(doc: str) -> str:
+def run_lark_cli(argv: list[str]) -> dict:
+    """Run a lark-cli command and return its JSON envelope."""
     if not shutil.which("lark-cli"):
         fail("lark-cli not found. Install it and run `lark-cli auth login` first.")
     env = {
@@ -74,13 +81,7 @@ def fetch_lark_markdown(doc: str) -> str:
         "LARKSUITE_CLI_NO_SKILLS_NOTIFIER": "1",
         "LARKSUITE_CLI_NO_UPDATE_NOTIFIER": "1",
     }
-    proc = subprocess.run(
-        ["lark-cli", "docs", "+fetch", "--doc", doc,
-         "--doc-format", "markdown", "--format", "json"],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
+    proc = subprocess.run(["lark-cli", *argv], capture_output=True, text=True, env=env)
     if proc.returncode != 0:
         fail(f"lark-cli failed with status {proc.returncode}:\n{proc.stderr or proc.stdout}")
     out = proc.stdout
@@ -90,7 +91,67 @@ def fetch_lark_markdown(doc: str) -> str:
         fail(f"unexpected lark-cli output:\n{out[:500]}")
     if not payload.get("ok"):
         fail(f"lark-cli returned an error:\n{json.dumps(payload, indent=2, ensure_ascii=False)}")
+    return payload
+
+
+def fetch_lark_markdown(doc: str) -> str:
+    payload = run_lark_cli([
+        "docs", "+fetch", "--doc", doc, "--doc-format", "markdown", "--format", "json",
+    ])
     return payload["data"]["document"]["content"]
+
+
+def csv_cell_to_md(cell: str) -> str:
+    return cell.replace("|", "\\|").replace("\r\n", "\n").replace("\n", "<br>")
+
+
+def fetch_sheet_markdown(token: str, sheet_id: str) -> str | None:
+    """Read an embedded sheet via lark-cli and render it as a GFM table."""
+    try:
+        payload = run_lark_cli([
+            "sheets", "+csv-get", "--spreadsheet-token", token, "--sheet-id", sheet_id,
+            "--range", SHEET_FETCH_RANGE, "--format", "json",
+        ])
+    except SystemExit:
+        return None
+    data = payload.get("data", {})
+    if data.get("has_more"):
+        print(f"  warning: sheet {sheet_id} exceeds {SHEET_FETCH_RANGE}, table truncated",
+              file=sys.stderr)
+    annotated = data.get("annotated_csv", "").strip("\n")
+    table = []
+    # Logical records start with a [row=N] prefix; quoted cells may span physical lines
+    for record in re.split(r"(?m)^(?=\[row=\d+\] )", annotated):
+        record = re.sub(r"^\[row=\d+\] ?", "", record, count=1).strip("\n")
+        if not record:
+            continue
+        parsed = next(csv.reader(io.StringIO(record), skipinitialspace=True), [])
+        table.append([csv_cell_to_md(c or "") for c in parsed])
+    if not table or not any(any(row) for row in table):
+        return None
+    width = max(len(r) for r in table)
+    table = [r + [""] * (width - len(r)) for r in table]
+    header = "| " + " | ".join(table[0]) + " |"
+    sep = "|" + " --- |" * width
+    body = ["| " + " | ".join(r) + " |" for r in table[1:]]
+    return "\n".join([header, sep, *body])
+
+
+def expand_sheets(text: str) -> str:
+    """Replace <sheet sheet-id token> embeds with a fetched GFM table (or placeholder on failure)."""
+
+    def sub(m: re.Match) -> str:
+        attrs = dict(SHEET_ATTR_RE.findall(m.group(1)))
+        token, sheet_id = attrs.get("token"), attrs.get("sheet-id")
+        if not token or not sheet_id:
+            return SHEET_PLACEHOLDER
+        table = fetch_sheet_markdown(token, sheet_id)
+        if table is None:
+            return SHEET_PLACEHOLDER
+        print(f"  sheet: {sheet_id} -> table")
+        return "\n" + table + "\n"
+
+    return SHEET_TAG_RE.sub(sub, text)
 
 
 def clean_title(title: str) -> str:
@@ -135,12 +196,10 @@ def normalize_fence_line(line: str) -> str:
 def cleanup_markdown(text: str) -> str:
     """Sanitize lark-cli markdown for MyST:
 
-    - replace <sheet> embeds (content is not exported) with a visible placeholder
     - undo escape artifacts (\\*, \\$, \\(, ...) outside code fences
     - escape `[^...]` tokens that are regex character classes, not real footnotes
     - normalize code fence languages to Pygments-compatible names
     """
-    text = SHEET_RE.sub("\n> [飞书内嵌电子表格未导出，请到原文档查看对应内容]\n", text)
     defined_footnotes = {
         m.group(1)
         for line in text.split("\n")
@@ -283,7 +342,7 @@ def main() -> None:
             fail("missing document: pass --doc <url> or set LARK_DOC_URL")
         markdown = fetch_lark_markdown(args.doc)
 
-    doc_title, preface, chapters = split_chapters(cleanup_markdown(markdown))
+    doc_title, preface, chapters = split_chapters(expand_sheets(cleanup_markdown(markdown)))
     title = args.title or doc_title or "Docs"
     if not chapters and not preface:
         fail("document is empty after parsing")

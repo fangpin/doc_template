@@ -1,29 +1,14 @@
-VENV := .venv
-PY := $(VENV)/bin/python
-SPHINX := $(VENV)/bin/sphinx-build
+# Standalone template repo: keep short target names (make docs / make install).
+# When vendored into another project, use doc.mk directly (make -f doc.mk docs)
+# or add `include doc.mk` to the host Makefile and call the docs-* targets.
 
-.PHONY: install sync html docs serve clean
+include doc.mk
 
-install:
-	python3 -m venv $(VENV)
-	$(VENV)/bin/pip install -r requirements.txt
+.PHONY: install sync html export docs serve clean
 
-ifndef FROM
-sync:
-	$(PY) doc_scripts/sync_lark_doc.py $(if $(DOC),--doc "$(DOC)")
-else
-sync:
-	$(PY) doc_scripts/sync_lark_doc.py --from-file "$(FROM)"
-endif
-
-html:
-	$(SPHINX) -b html docs/source docs/_build/html
-
-docs: sync html
-	@echo "open docs/_build/html/index.html"
-
-serve: html
-	$(PY) -m http.server 8000 --directory docs/_build/html
-
-clean:
-	rm -rf docs/_build
+install: docs-install
+sync: docs-sync
+html: docs-html
+export: docs-export
+serve: docs-serve
+clean: docs-clean
