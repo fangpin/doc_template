@@ -58,10 +58,10 @@ make sync FROM=local.md    # offline: build from a local markdown file, no Feish
 
 ## Vendor into Another Project (flat install)
 
-Run from the **target project's root** (this repo must be reachable on GitHub):
+Run from the **target project's root**:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/fangpin/doc_template/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/fangpin/doc_template/master/install.sh | bash
 make -f doc.mk docs-install
 make -f doc.mk docs DOC="<feishu-doc-url>"
 ```
