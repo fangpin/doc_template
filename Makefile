@@ -10,11 +10,10 @@ install:
 
 ifndef FROM
 sync:
-	@test -n "$(DOC)" || (echo "usage: make sync DOC=<feishu-doc-url>" && exit 1)
-	$(PY) scripts/sync_lark_doc.py --doc "$(DOC)"
+	$(PY) doc_scripts/sync_lark_doc.py $(if $(DOC),--doc "$(DOC)")
 else
 sync:
-	$(PY) scripts/sync_lark_doc.py --from-file "$(FROM)"
+	$(PY) doc_scripts/sync_lark_doc.py --from-file "$(FROM)"
 endif
 
 html:

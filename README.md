@@ -47,7 +47,7 @@ make sync FROM=local.md    # 离线/调试：从本地 Markdown 文件生成（�
 ## 工作原理
 
 ```
-飞书文档 --(lark-cli +fetch， Markdown 格式)--> scripts/sync_lark_doc.py
+飞书文档 --(lark-cli +fetch， Markdown 格式)--> doc_scripts/sync_lark_doc.py
   ├── 按一级标题切分为 docs/source/chapters/NN-<slug>.md
   ├── 远程图片下载到 docs/source/assets/images/<slug>/，并改写引用
   ├── 生成 docs/source/index.md（标题 + 前言 + toctree）
@@ -64,7 +64,7 @@ sphinx-build（myst-parser + sphinx_rtd_theme）--> docs/_build/html/
 整个目录即模板，复制时需要的一切都在仓库内：
 
 ```
-Makefile  requirements.txt  scripts/  docs/  .github/workflows/docs.yml
+Makefile  requirements.txt  doc_scripts/  docs/  .github/workflows/docs.yml
 ```
 
 复制后按上面的流程 `make install && make docs DOC=<url>` 即可；不同项目只需传不同的 `DOC`。
