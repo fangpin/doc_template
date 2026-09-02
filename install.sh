@@ -2,19 +2,19 @@
 # Vendor this documentation template into a repository's root directory.
 #
 # Run from the target repo's root:
-#   curl -sSL https://raw.githubusercontent.com/fangpin/doc_template/main/install.sh | bash
+#   curl -sSL https://raw.githubusercontent.com/fangpin/doc_template/master/install.sh | bash
 #
 # From a local clone (installs elsewhere or wherever you point it):
 #   ./install.sh /path/to/target-repo
 #
-# Pin a ref (tag/commit) instead of main:  REF=v1.0.0 (env var)
+# Pin a ref (tag/commit) instead of master:  REF=v1.0.0 (env var)
 # Install into a different directory:      pass it as the first argument
 #
 # Idempotent: template-owned files are overwritten, everything else is left alone.
 
 set -euo pipefail
 
-REF="${REF:-main}"
+REF="${REF:-master}"
 OWNER_REPO="${OWNER_REPO:-fangpin/doc_template}"  # source repo for curl mode
 TARGET="${1:-$PWD}"
 

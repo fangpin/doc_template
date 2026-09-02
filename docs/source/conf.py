@@ -44,6 +44,17 @@ def _github_slug() -> str | None:
     return m.group(1) if m else None
 
 
+def _default_branch() -> str:
+    """Remote default branch (e.g. master) via origin/HEAD, else main."""
+    try:
+        ref = subprocess.check_output(
+            ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], text=True,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "main"
+    return ref.split("/", 1)[1] if "/" in ref else "main"
+
+
 # Renders an "Edit on GitHub" link in the page header (instead of keeping only
 # "View page source"). Set "github_repo": "owner/repo" in docs/project.json to
 # override auto-detection.
@@ -55,6 +66,6 @@ if github_slug:
         "display_github": True,
         "github_user": github_user,
         "github_repo": github_repo,
-        "github_version": meta.get("github_branch") or os.environ.get("GITHUB_REF_NAME", "main"),
+        "github_version": meta.get("github_branch") or os.environ.get("GITHUB_REF_NAME") or _default_branch(),
         "conf_py_path": "/docs/source/",
     }
