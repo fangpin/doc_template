@@ -8,8 +8,12 @@ meta_path = Path(__file__).resolve().parent.parent / "project.json"
 meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
 
 project = meta.get("title", "Docs")
-author = "Alice"
-copyright = "2026, Alice"
+author = "Pin Fang"
+copyright = "2026, Pin Fang"
+html_show_sphinx = False
+
+templates_path = ["_templates"]
+author_url = "https://github.com/fangpin"
 
 extensions = ["myst_parser"]
 myst_enable_extensions = [
