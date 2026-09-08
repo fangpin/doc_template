@@ -14,6 +14,10 @@ html_show_sphinx = False
 
 templates_path = ["_templates"]
 author_url = "https://github.com/fangpin"
+html_context = {
+    "author": author,
+    "author_url": author_url,
+}
 
 extensions = ["myst_parser"]
 myst_enable_extensions = [
